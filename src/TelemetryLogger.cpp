@@ -14,6 +14,7 @@ TelemetryLogger::TelemetryLogger(std::string recordName)
     : m_recordName(std::move(recordName)),
       m_startTime(std::chrono::steady_clock::now()),
       m_readableStdout(false),
+      m_readableFile(false),
       m_toStdout(false),
       m_toFile(false)
 {
@@ -37,31 +38,31 @@ void TelemetryLogger::declareSeries(
     // TODO : save the serie declaration
 }
 
-void TelemetryLogger::saveToFile(const std::string &fileName)
+void TelemetryLogger::saveToFile(const std::string &fileName, bool readable)
 {
-    if (!m_toFile) {
-        m_toFile = true;
-        m_fileName = fileName;
-        m_fileStream.open(m_fileName, std::ios::app);
-        if (!m_fileStream) {
-            std::cerr << "Error: Could not open file " << m_fileName << " for writing!\n";
-            m_toFile = false;
-            return;
-        }
+    if (m_toFile) {
+        stopSaveToFile();
+    }
+    m_readableFile = readable;
+    m_toFile = true;
+    m_fileName = fileName;
+
+    if (m_readableFile)
+        m_fileStream.open(m_fileName, std::ios::binary | std::ios::trunc);
+    else {
+        m_fileStream.open(m_fileName, std::ios::trunc);
+    }
+    if (!m_fileStream) {
+        std::cerr << "Error: Could not open file " << m_fileName
+                  << " for writing!\n";
+        m_toFile = false;
+        return;
     }
 
     for (const auto &value : m_buffer) {
-        m_fileStream << value.serieName << " [" << value.timestamp << "]: ";
-        switch (m_series[value.serieName].type) {
-            case TelemetryType::DOUBLE:
-                m_fileStream << std::get<double>(value.value);
-                break;
-            case TelemetryType::STRING:
-                m_fileStream << std::get<std::string>(value.value);
-                break;
-        }
-        m_fileStream << std::endl;
+        writeInFile(value);
     }
+    m_buffer.clear();
 }
 
 void TelemetryLogger::stopSaveToFile()
@@ -79,19 +80,9 @@ void TelemetryLogger::saveToStdout(bool readable)
     //  after, print info directly into the file
 
     for (const auto &value : m_buffer) {
-        if (m_readableStdout) {
-            std::cout << value.serieName << " [" << value.timestamp << "]: ";
-            switch (m_series[value.serieName].type) {
-                case TelemetryType::DOUBLE:
-                    std::cout << std::get<double>(value.value);
-                    break;
-                case TelemetryType::STRING:
-                    std::cout << std::get<std::string>(value.value);
-                    break;
-            }
-            std::cout << std::endl;
-        }
+        writeInStdout(value);
     }
+    m_buffer.clear();
 }
 
 void TelemetryLogger::StopSaveToStdout()
@@ -100,15 +91,14 @@ void TelemetryLogger::StopSaveToStdout()
     m_readableStdout = false;
 }
 
-
-bool TelemetryLogger::checkValueType(const std::string &serieName,
+bool TelemetryLogger::checkValueType(
+    const std::string &serieName,
     const std::variant<double, std::string> &value)
 {
     auto it = m_series.find(serieName);
 
     if (it == m_series.end()) {
-        std::cerr << "Error: Series '" << serieName
-                  << "' not declared!\n";
+        std::cerr << "Error: Series '" << serieName << "' not declared!\n";
         return false;
     }
     if ((it->second.type == TelemetryType::DOUBLE &&
@@ -130,7 +120,9 @@ void TelemetryLogger::log(
         return;
 
     auto now = std::chrono::steady_clock::now();
-    uint64_t timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_startTime).count();
+    uint64_t timestamp =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_startTime)
+            .count();
     saveValue({serieName, timestamp, value});
 }
 
@@ -146,16 +138,46 @@ void TelemetryLogger::logStatic(
 
 void TelemetryLogger::saveValue(TelemetryData value)
 {
-    m_buffer.push_back(value);
-
     if (m_toStdout) {
-        saveToStdout(m_readableStdout);
+        writeInStdout(value);
     }
     if (m_toFile) {
-        saveToFile(m_recordName + ".bin");
+        writeInFile(value);
     }
-    if (m_toStdout || m_toFile)
-        m_buffer.clear();
+    if (!m_toStdout && !m_toFile)
+        m_buffer.push_back(value);
+}
+
+void TelemetryLogger::writeInStdout(const TelemetryData &value)
+{
+    if (m_readableStdout) {
+        std::cout << value.serieName << " [" << value.timestamp << "]: ";
+        switch (m_series[value.serieName].type) {
+            case TelemetryType::DOUBLE:
+                std::cout << std::get<double>(value.value);
+                break;
+            case TelemetryType::STRING:
+                std::cout << std::get<std::string>(value.value);
+                break;
+        }
+        std::cout << std::endl;
+    }
+}
+
+void TelemetryLogger::writeInFile(const TelemetryData &value)
+{
+    if (m_readableStdout) {
+        m_fileStream << value.serieName << " [" << value.timestamp << "]: ";
+        switch (m_series[value.serieName].type) {
+            case TelemetryType::DOUBLE:
+                m_fileStream << std::get<double>(value.value);
+                break;
+            case TelemetryType::STRING:
+                m_fileStream << std::get<std::string>(value.value);
+                break;
+        }
+        m_fileStream << std::endl;
+    }
 }
 
 void TelemetryLogger::clear()

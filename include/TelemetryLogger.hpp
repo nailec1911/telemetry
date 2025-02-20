@@ -47,7 +47,7 @@ class TelemetryLogger
 
     void declareSeries(
         const std::string &name, const std::string &unit, TelemetryType type);
-    void saveToFile(const std::string &fileName);
+    void saveToFile(const std::string &fileName, bool readable = false);
     void stopSaveToFile();
     void saveToStdout(bool readable = true);
     void StopSaveToStdout();
@@ -67,6 +67,7 @@ class TelemetryLogger
     std::string m_fileName;
     std::string m_recordName;
     bool m_readableStdout;
+    bool m_readableFile;
     bool m_toStdout;
     bool m_toFile;
     std::unordered_map<std::string, TelemetrySeries> m_series;
@@ -74,7 +75,8 @@ class TelemetryLogger
     std::vector<TelemetryData> m_buffer;
     std::ofstream m_fileStream;
 
-    void saveData();
+    void writeInStdout(const TelemetryData &value);
+    void writeInFile(const TelemetryData &value);
     void saveValue(TelemetryData value);
     bool checkValueType(
         const std::string &serieName,
