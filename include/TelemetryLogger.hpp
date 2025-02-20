@@ -80,5 +80,6 @@ class TelemetryLogger
     void saveValue(TelemetryData value);
     bool checkValueType(
         const std::string &serieName,
-        const std::variant<double, std::string> &value);
+        const std::variant<double, std::string> &value) const;
+    std::string getReadableValue(const TelemetryData &value) const;
 };

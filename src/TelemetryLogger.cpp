@@ -93,7 +93,7 @@ void TelemetryLogger::StopSaveToStdout()
 
 bool TelemetryLogger::checkValueType(
     const std::string &serieName,
-    const std::variant<double, std::string> &value)
+    const std::variant<double, std::string> &value) const
 {
     auto it = m_series.find(serieName);
 
@@ -151,33 +151,35 @@ void TelemetryLogger::saveValue(TelemetryData value)
 void TelemetryLogger::writeInStdout(const TelemetryData &value)
 {
     if (m_readableStdout) {
-        std::cout << value.serieName << " [" << value.timestamp << "]: ";
-        switch (m_series[value.serieName].type) {
-            case TelemetryType::DOUBLE:
-                std::cout << std::get<double>(value.value);
-                break;
-            case TelemetryType::STRING:
-                std::cout << std::get<std::string>(value.value);
-                break;
-        }
-        std::cout << std::endl;
+        std::cout << getReadableValue(value) << std::endl;
     }
 }
 
 void TelemetryLogger::writeInFile(const TelemetryData &value)
 {
     if (m_readableStdout) {
-        m_fileStream << value.serieName << " [" << value.timestamp << "]: ";
-        switch (m_series[value.serieName].type) {
-            case TelemetryType::DOUBLE:
-                m_fileStream << std::get<double>(value.value);
-                break;
-            case TelemetryType::STRING:
-                m_fileStream << std::get<std::string>(value.value);
-                break;
-        }
-        m_fileStream << std::endl;
+        m_fileStream << getReadableValue(value) << std::endl;
     }
+}
+
+std::string TelemetryLogger::getReadableValue(const TelemetryData &value) const
+{
+    std::ostringstream oss;
+    oss << value.serieName << " [" << value.timestamp << "]: ";
+
+    switch (m_series.at(value.serieName).type) {
+        case TelemetryType::DOUBLE:
+            oss << std::to_string(std::get<double>(value.value));
+            break;
+        case TelemetryType::STRING:
+            oss << std::get<std::string>(value.value);
+            break;
+        default:
+            oss << "Unknown Type";
+            break;
+    }
+
+    return oss.str();
 }
 
 void TelemetryLogger::clear()
