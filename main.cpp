@@ -13,6 +13,7 @@ int main() {
 
     logger.declareSeries("battery_level", "V", TelemetryType::DOUBLE);
     logger.declareSeries("status", "", TelemetryType::STRING);
+    logger.saveToStdout(true);
 
     std::cout << "Current series:" << std::endl;
     auto names = logger.getSeriesList();
@@ -20,10 +21,11 @@ int main() {
         std::cout << name << std::endl;
     }
 
+    logger.logStatic("battery_level", 0.);
     logger.log("battery_level", 29.5);
     logger.log("battery_level", 28.9);
-    // logger.log("status", "OK");
-    // logger.log("status", "WARNING");
+    logger.log("status", "OK");
+    logger.log("status", "WARNING");
 
     logger.saveToFile("telemetry.rrd");
 }
