@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <string>
 
 TelemetryLogger::TelemetryLogger(std::string recordName)
     : m_recordName(std::move(recordName)),
@@ -34,8 +35,25 @@ void TelemetryLogger::declareSeries(
             std::chrono::steady_clock::now() - m_startTime)
             .count();
 
-    m_series[name] = {unit, type, seriesStartTime};
-    // TODO : save the serie declaration
+    uint16_t id = m_nextSeriesId++;
+
+    m_series[name] = {id, unit, type, seriesStartTime};
+
+    std::string valLog = getReadableSerieInfos(name, m_series[name]);
+
+    if (m_toStdout) {
+        if (m_readableStdout)
+            std::cout << valLog << std::endl;
+    }
+    if (m_toFile) {
+        if (m_readableFile)
+            m_fileStream << valLog << std::endl;
+    }
+}
+
+std::string TelemetryLogger::getReadableSerieInfos(const std::string &name, const TelemetrySeries &serie)
+{
+    return "Series '" + name + "' (ID: " + std::to_string(serie.id) + ", Unit: " + serie.unit  + ", Start time: " + std::to_string(serie.startTime) + ")";
 }
 
 void TelemetryLogger::saveToFile(const std::string &fileName, bool readable)
@@ -58,7 +76,9 @@ void TelemetryLogger::saveToFile(const std::string &fileName, bool readable)
         m_toFile = false;
         return;
     }
-
+    for (const auto &serie : m_series) {
+        m_fileStream << getReadableSerieInfos(serie.first, serie.second) << std::endl;
+    }
     for (const auto &value : m_buffer) {
         writeInFile(value);
     }
@@ -76,9 +96,10 @@ void TelemetryLogger::saveToStdout(bool readable)
 {
     m_toStdout = true;
     m_readableStdout = readable;
-    // print the buffer to stdout
-    //  after, print info directly into the file
 
+    for (const auto &serie : m_series) {
+        std::cout << getReadableSerieInfos(serie.first, serie.second) << std::endl;
+    }
     for (const auto &value : m_buffer) {
         writeInStdout(value);
     }
@@ -157,7 +178,7 @@ void TelemetryLogger::writeInStdout(const TelemetryData &value)
 
 void TelemetryLogger::writeInFile(const TelemetryData &value)
 {
-    if (m_readableStdout) {
+    if (m_readableFile) {
         m_fileStream << getReadableValue(value) << std::endl;
     }
 }

@@ -8,6 +8,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <fstream>
 #include <string>
 #include <unordered_map>
@@ -29,6 +30,7 @@ struct TelemetryData
 
 struct TelemetrySeries
 {
+    uint16_t id;
     std::string unit;
     TelemetryType type;
     uint64_t startTime;
@@ -64,6 +66,7 @@ class TelemetryLogger
 
    protected:
    private:
+    uint16_t m_nextSeriesId = 0;
     std::string m_fileName;
     std::string m_recordName;
     bool m_readableStdout;
@@ -82,4 +85,5 @@ class TelemetryLogger
         const std::string &serieName,
         const std::variant<double, std::string> &value) const;
     std::string getReadableValue(const TelemetryData &value) const;
+    static std::string getReadableSerieInfos(const std::string &name, const TelemetrySeries &serie);
 };
