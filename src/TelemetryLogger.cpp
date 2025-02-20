@@ -7,17 +7,36 @@
 
 #include "TelemetryLogger.hpp"
 
+#include <iostream>
+
 TelemetryLogger::TelemetryLogger(std::string recordName)
-    : m_recordName(std::move(recordName))
+    : m_recordName(std::move(recordName)),
+      m_startTime(std::chrono::steady_clock::now())
 {
-    // start the timer
 }
 
 TelemetryLogger::~TelemetryLogger() {}
 
-void TelemetryLogger::declareSeries(const std::string& name, const std::string& unit, TelemetryType type)
+uint64_t getCurrentTimestamp()
 {
-    // create a serie and assign it a unti and type
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
+void TelemetryLogger::declareSeries(
+    const std::string &name, const std::string &unit, TelemetryType type)
+{
+    if (m_series.find(name) != m_series.end()) {
+        std::cerr << "Error: Series '" << name << "' already declared!\n";
+        return;
+    }
+    uint64_t seriesStartTime =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - m_startTime)
+            .count();
+
+    m_series[name] = {unit, type, seriesStartTime};
 }
 
 void TelemetryLogger::saveToFile(const std::string &fileName)
@@ -28,8 +47,8 @@ void TelemetryLogger::saveToFile(const std::string &fileName)
 
 void TelemetryLogger::to_stdout()
 {
-    //print the buffer to stdout
-    // after, print info directly into the file
+    // print the buffer to stdout
+    //  after, print info directly into the file
 }
 
 void TelemetryLogger::log(const std::string &serieName, double value)
@@ -43,13 +62,18 @@ void TelemetryLogger::logStatic(const std::string &serieName, double value)
     // same as log but no timestamp
 }
 
-void clear()
+void TelemetryLogger::clear()
 {
-    // clear all the series
+    m_series.clear();
 }
 
-std::vector<std::string> getSeriesList()
+std::vector<std::string> TelemetryLogger::getSeriesList()
 {
-    // return the list of series name
-    return {};
+    std::vector<std::string> names;
+    names.reserve(m_series.size());
+
+    for (const auto &entry : m_series) {
+        names.push_back(entry.first);
+    }
+    return names;
 }

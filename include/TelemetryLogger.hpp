@@ -7,10 +7,18 @@
 
 #pragma once
 
+#include <chrono>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 enum class TelemetryType { DOUBLE, STRING };
+
+struct TelemetrySeries {
+    std::string unit;
+    TelemetryType type;
+    uint64_t startTime;
+};
 
 class TelemetryLogger {
 public:
@@ -37,4 +45,6 @@ protected:
 private:
     std::string m_fileName;
     std::string m_recordName;
+    std::unordered_map<std::string, TelemetrySeries> m_series;
+    std::chrono::steady_clock::time_point m_startTime;
 };
