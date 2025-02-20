@@ -39,14 +39,36 @@ void TelemetryLogger::declareSeries(
 
 void TelemetryLogger::saveToFile(const std::string &fileName)
 {
-    // print the buffer into the file when it's called
-    // after, print info directly into the file
+    if (!m_toFile) {
+        m_toFile = true;
+        m_fileName = fileName;
+        m_fileStream.open(m_fileName, std::ios::app);
+        if (!m_fileStream) {
+            std::cerr << "Error: Could not open file " << m_fileName << " for writing!\n";
+            m_toFile = false;
+            return;
+        }
+    }
+
+    for (const auto &value : m_buffer) {
+        m_fileStream << value.serieName << " [" << value.timestamp << "]: ";
+        switch (m_series[value.serieName].type) {
+            case TelemetryType::DOUBLE:
+                m_fileStream << std::get<double>(value.value);
+                break;
+            case TelemetryType::STRING:
+                m_fileStream << std::get<std::string>(value.value);
+                break;
+        }
+        m_fileStream << std::endl;
+    }
 }
 
 void TelemetryLogger::stopSaveToFile()
 {
     m_toFile = false;
-    //! TODO : close ofstream
+    m_fileStream.close();
+    m_fileName.clear();
 }
 
 void TelemetryLogger::saveToStdout(bool readable)
@@ -78,47 +100,52 @@ void TelemetryLogger::StopSaveToStdout()
     m_readableStdout = false;
 }
 
-void TelemetryLogger::log(
-    const std::string &serieName,
+
+bool TelemetryLogger::checkValueType(const std::string &serieName,
     const std::variant<double, std::string> &value)
 {
-    auto now = std::chrono::steady_clock::now();
-    uint64_t timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_startTime).count();
-    writeBuffer({serieName, timestamp, value});
-}
+    auto it = m_series.find(serieName);
 
-void TelemetryLogger::logStatic(
-    const std::string &serieName,
-    const std::variant<double, std::string> &value)
-{
-    writeBuffer({serieName, 0, value});
-}
-
-bool TelemetryLogger::checkValueType(
-    const TelemetrySeries &serie, const TelemetryData &value)
-{
-    if ((serie.type == TelemetryType::DOUBLE &&
-         !std::holds_alternative<double>(value.value)) ||
-        (serie.type == TelemetryType::STRING &&
-         !std::holds_alternative<std::string>(value.value))) {
-        std::cerr << "Error: Series '" << value.serieName
+    if (it == m_series.end()) {
+        std::cerr << "Error: Series '" << serieName
+                  << "' not declared!\n";
+        return false;
+    }
+    if ((it->second.type == TelemetryType::DOUBLE &&
+         !std::holds_alternative<double>(value)) ||
+        (it->second.type == TelemetryType::STRING &&
+         !std::holds_alternative<std::string>(value))) {
+        std::cerr << "Error: Series '" << serieName
                   << "' has an incompatible type for the logged value!\n";
         return false;
     }
     return true;
 }
 
-void TelemetryLogger::writeBuffer(TelemetryData value)
+void TelemetryLogger::log(
+    const std::string &serieName,
+    const std::variant<double, std::string> &value)
 {
-    auto it = m_series.find(value.serieName);
-    if (it == m_series.end()) {
-        std::cerr << "Error: Series '" << value.serieName
-                  << "' not declared!\n";
-        return;
-    }
-    if (!checkValueType(it->second, value))
+    if (!checkValueType(serieName, value))
         return;
 
+    auto now = std::chrono::steady_clock::now();
+    uint64_t timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_startTime).count();
+    saveValue({serieName, timestamp, value});
+}
+
+void TelemetryLogger::logStatic(
+    const std::string &serieName,
+    const std::variant<double, std::string> &value)
+{
+    if (!checkValueType(serieName, value))
+        return;
+
+    saveValue({serieName, 0, value});
+}
+
+void TelemetryLogger::saveValue(TelemetryData value)
+{
     m_buffer.push_back(value);
 
     if (m_toStdout) {

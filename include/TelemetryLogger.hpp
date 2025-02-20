@@ -11,25 +11,32 @@
 #include <fstream>
 #include <string>
 #include <unordered_map>
-#include <vector>
 #include <variant>
+#include <vector>
 
-enum class TelemetryType { DOUBLE, STRING };
+enum class TelemetryType
+{
+    DOUBLE,
+    STRING
+};
 
-struct TelemetryData {
+struct TelemetryData
+{
     std::string serieName;
     uint64_t timestamp;
     std::variant<double, std::string> value;
 };
 
-struct TelemetrySeries {
+struct TelemetrySeries
+{
     std::string unit;
     TelemetryType type;
     uint64_t startTime;
 };
 
-class TelemetryLogger {
-public:
+class TelemetryLogger
+{
+   public:
     TelemetryLogger() = delete;
     TelemetryLogger(const TelemetryLogger &) = delete;
     TelemetryLogger(TelemetryLogger &&) = delete;
@@ -38,21 +45,25 @@ public:
     TelemetryLogger(std::string recordName = "logs.bin");
     ~TelemetryLogger();
 
-
-    void declareSeries(const std::string& name, const std::string& unit, TelemetryType type);
+    void declareSeries(
+        const std::string &name, const std::string &unit, TelemetryType type);
     void saveToFile(const std::string &fileName);
     void stopSaveToFile();
     void saveToStdout(bool readable = true);
     void StopSaveToStdout();
 
-    void log(const std::string &serieName, const std::variant<double, std::string> &value);
-    void logStatic(const std::string &serieName, const std::variant<double, std::string> &value);
+    void log(
+        const std::string &serieName,
+        const std::variant<double, std::string> &value);
+    void logStatic(
+        const std::string &serieName,
+        const std::variant<double, std::string> &value);
 
     void clear();
     std::vector<std::string> getSeriesList();
 
-protected:
-private:
+   protected:
+   private:
     std::string m_fileName;
     std::string m_recordName;
     bool m_readableStdout;
@@ -61,8 +72,11 @@ private:
     std::unordered_map<std::string, TelemetrySeries> m_series;
     std::chrono::steady_clock::time_point m_startTime;
     std::vector<TelemetryData> m_buffer;
-    std::ofstream m_outFile;
+    std::ofstream m_fileStream;
 
-    void writeBuffer(TelemetryData value);
-    static bool checkValueType(const TelemetrySeries &serie, const TelemetryData &value);
+    void saveData();
+    void saveValue(TelemetryData value);
+    bool checkValueType(
+        const std::string &serieName,
+        const std::variant<double, std::string> &value);
 };
