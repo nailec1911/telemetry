@@ -11,13 +11,16 @@ class Serie:
         self.value_type: type = value_type
         self.id = serie_id
         self.timestamp: int = timestamp
-        # self.values = pd.Series()
-        self.values = {}
+        self.values = pd.Series(dtype=value_type)
         return
 
     def add_value(self, timestamp, value):
-        print(f"{self.name} [{timestamp}]: {value}")
-        self.values[timestamp] = value
+        self.values.at[timestamp] = value
+        return
+
+    def print_values(self):
+        for timestamp, value in self.values.items():
+            print(f"{self.name} [{timestamp}]: {value}")
         return
 
     def get_type(self) -> type:
@@ -58,7 +61,6 @@ class Parser:
         self.name = self.get_string()
         self.timestamp: int = struct.unpack(
             "Q", self.file[:self.SIZE_TIMESTAMP])[0]
-        print(self.name, self.timestamp)
         self.file = self.file[self.SIZE_TIMESTAMP:]
 
         while len(self.file) > 1:
@@ -72,19 +74,24 @@ class Parser:
                 raise ValueError(f"Error value has unknow serie id {serie_id}")
             if self.series[serie_id].get_type() == str:
                 self.parse_str_value(serie_id)
-            else :
+            else:
                 self.parse_value(serie_id)
         return
 
+    def get_datas(self) -> tuple:
+        return (self.name, self.timestamp, self.series)
+
     def parse_str_value(self, serie_id):
         if len(self.file) < self.SIZE_MIN_VALUE_STR:
-            raise ValueError("Error in value parsing, not enought informations")
+            raise ValueError(
+                "Error in value parsing, not enought informations")
         data_format = "=Qi"
         data_size = struct.calcsize(data_format)
         timestamp, sizeval = struct.unpack(data_format, self.file[:data_size])
         self.file = self.file[data_size:]
         if len(self.file) < sizeval:
-            raise ValueError("Error in value parsing, string isn't the right size")
+            raise ValueError(
+                "Error in value parsing, string isn't the right size")
 
         res = struct.unpack(f"{sizeval}s", self.file[:sizeval])[0]
         self.file = self.file[sizeval:]
@@ -95,7 +102,8 @@ class Parser:
 
     def parse_value(self, serie_id):
         if len(self.file) < self.SIZE_MIN_VALUE_DOUBLE:
-            raise ValueError("Error in value parsing, not enought informations")
+            raise ValueError(
+                "Error in value parsing, not enought informations")
         data_format = "=Qd"
         data_size = struct.calcsize(data_format)
         timestamp, value = struct.unpack(data_format, self.file[:data_size])
@@ -123,5 +131,4 @@ class Parser:
         self.series[serie_id] = Serie(
             name, serie_id, timestamp, unit, type_val)
         self.file = self.file[data_size:]
-        print(self.series[serie_id])
         return

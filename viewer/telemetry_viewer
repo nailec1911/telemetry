@@ -21,18 +21,23 @@ def parse_arguments():
 
 
 def main_viewer(file: str) -> int:
-    series: list[Serie]
+    name: str = "default"
+    timestamp: int = 0
+    series: dict[int:Serie] = {}
     try:
         with open(file, 'rb') as file_content:
             parsed = Parser(file_content.read())
-            series = parsed.series
+            name, timestamp, series = parsed.get_datas()
     except Exception as err:
         print(str(err))
         raise FileNotFoundError(
             f"Failed to load values from file '{file}'") from err
 
     print(f"Telemetry infos from file '{file}' properly loaded.")
-    print("Series :", series)
+    print(name, timestamp)
+    for _, serie in series.items():
+        print(serie)
+        serie.print_values()
     return 0
 
 
