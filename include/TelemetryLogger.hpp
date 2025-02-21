@@ -66,7 +66,7 @@ class TelemetryLogger
 
    protected:
    private:
-    uint16_t m_nextSeriesId = 0;
+    uint16_t m_nextSeriesId = 1;
     std::string m_fileName;
     std::string m_recordName;
     bool m_readableFile;

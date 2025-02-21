@@ -68,7 +68,7 @@ std::vector<uint8_t> TelemetryLogger::getSerieAsBytes(
     const std::string &name, const TelemetrySeries &serie)
 {
     std::vector<uint8_t> packedData;
-    appendToVector(packedData, 0xFFFF); // magic number to identify this is a series declaration
+    appendToVector(packedData, 0); // magic number to identify this is a series declaration
     appendToVector(packedData, static_cast<uint16_t>(name.size()));
     for (char c : name) {
         packedData.push_back(static_cast<uint8_t>(c));
