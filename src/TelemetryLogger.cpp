@@ -11,6 +11,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 TelemetryLogger::TelemetryLogger(std::string recordName)
     : m_recordName(std::move(recordName)),
@@ -19,6 +20,10 @@ TelemetryLogger::TelemetryLogger(std::string recordName)
       m_toStdout(false),
       m_toFile(false)
 {
+    if (recordName.size() > UINT8_MAX) {
+        std::cerr << "Error: recordName length must be inferior to 255 chars" << std::endl;
+        return;
+    }
 }
 
 TelemetryLogger::~TelemetryLogger() {}
@@ -27,7 +32,15 @@ void TelemetryLogger::declareSeries(
     const std::string &name, const std::string &unit, TelemetryType type)
 {
     if (m_series.find(name) != m_series.end()) {
-        std::cerr << "Error: Series '" << name << "' already declared!\n";
+        std::cerr << "Error: Series '" << name << "' already declared!" << std::endl;
+        return;
+    }
+    if (unit.size() > 16) {
+        std::cerr << "Error: Unit must be under 16 characters" << std::endl;
+        return;
+    }
+    if (name.size() > UINT8_MAX) {
+        std::cerr << "Error: Unit must be under 16 characters" << std::endl;
         return;
     }
     uint64_t seriesStartTime =
@@ -68,14 +81,15 @@ std::vector<uint8_t> TelemetryLogger::getSerieAsBytes(
     const std::string &name, const TelemetrySeries &serie)
 {
     std::vector<uint8_t> packedData;
-    appendToVector(packedData, 0); // magic number to identify this is a series declaration
-    appendToVector(packedData, static_cast<uint16_t>(name.size()));
+    appendToVector(packedData, (uint16_t)0); // magic number to identify this is a series declaration
+    appendToVector(packedData, static_cast<uint8_t>(name.size()));
     for (char c : name) {
         packedData.push_back(static_cast<uint8_t>(c));
     }
 
     appendToVector(packedData, serie.id);
     appendToVector(packedData, serie.startTime);
+    appendToVector(packedData, static_cast<uint8_t>(serie.type));
 
     std::string unit = serie.unit.substr(0, 16);
     for (size_t i = 0; i < 16; ++i) {
@@ -108,9 +122,23 @@ void TelemetryLogger::saveToFile(const std::string &fileName, bool readable)
         m_toFile = false;
         return;
     }
-    for (const auto &serie : m_series) {
-        m_fileStream << getReadableSerieInfos(serie.first, serie.second)
-                     << std::endl;
+    if (m_readableFile) {
+        m_fileStream << getReadableHeader() << std::endl;
+        for (const auto &serie : m_series) {
+            m_fileStream << getReadableSerieInfos(serie.first, serie.second)
+                         << std::endl;
+        }
+    } else {
+        auto packedHeader = getHeaderAsBytes();
+        m_fileStream.write(
+            reinterpret_cast<const char *>(packedHeader.data()),   // NOLINT
+            static_cast<long>(packedHeader.size()));
+        for (const auto &serie : m_series) {
+            auto packed = getSerieAsBytes(serie.first, serie.second);
+            m_fileStream.write(
+                reinterpret_cast<const char *>(packed.data()),   // NOLINT
+                static_cast<long>(packed.size()));
+        }
     }
     for (const auto &value : m_buffer) {
         writeInFile(value);
@@ -129,6 +157,7 @@ void TelemetryLogger::saveToStdout()
 {
     m_toStdout = true;
 
+    std::cout << getReadableHeader() << std::endl;
     for (const auto &serie : m_series) {
         std::cout << getReadableSerieInfos(serie.first, serie.second)
                   << std::endl;
@@ -143,6 +172,26 @@ void TelemetryLogger::StopSaveToStdout()
 {
     m_toStdout = false;
 }
+
+std::string TelemetryLogger::getReadableHeader() const
+{
+    std::ostringstream oss;
+    oss << "Start " << m_recordName << " [" << m_startTime.time_since_epoch() << "]";
+    return oss.str();
+}
+
+std::vector<uint8_t> TelemetryLogger::getHeaderAsBytes() const
+{
+    std::vector<uint8_t> packedData;
+    appendToVector(packedData, (uint8_t)m_recordName.size());
+    for (char c : m_recordName) {
+        packedData.push_back(static_cast<uint8_t>(c));
+    }
+    uint64_t startTime = std::chrono::duration_cast<std::chrono::nanoseconds>(m_startTime.time_since_epoch()).count();
+    appendToVector(packedData, startTime);
+    return packedData;
+}
+
 
 bool TelemetryLogger::checkValueType(
     const std::string &serieName,

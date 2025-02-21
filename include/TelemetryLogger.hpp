@@ -84,6 +84,8 @@ class TelemetryLogger
         const std::string &serieName,
         const std::variant<double, std::string> &value) const;
     std::string getReadableValue(const TelemetryData &value) const;
+    std::string getReadableHeader() const;
+    std::vector<uint8_t> getHeaderAsBytes() const;
     static std::string getReadableSerieInfos(const std::string &name, const TelemetrySeries &serie);
     static std::vector<uint8_t> getSerieAsBytes(const std::string &name, const TelemetrySeries &serie);
     std::vector<uint8_t> getValueAsBytes(const TelemetryData &value);

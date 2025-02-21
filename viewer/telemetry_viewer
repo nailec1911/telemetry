@@ -24,9 +24,10 @@ def main_viewer(file: str) -> int:
     series: list[Serie]
     try:
         with open(file, 'rb') as file_content:
-            parsed = Parser(file_content)
+            parsed = Parser(file_content.read())
             series = parsed.series
     except Exception as err:
+        print(str(err))
         raise FileNotFoundError(
             f"Failed to load values from file '{file}'") from err
 
