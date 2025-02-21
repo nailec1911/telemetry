@@ -8,13 +8,13 @@
 #include "TelemetryLogger.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <string>
 
 TelemetryLogger::TelemetryLogger(std::string recordName)
     : m_recordName(std::move(recordName)),
       m_startTime(std::chrono::steady_clock::now()),
-      m_readableStdout(false),
       m_readableFile(false),
       m_toStdout(false),
       m_toFile(false)
@@ -42,18 +42,50 @@ void TelemetryLogger::declareSeries(
     std::string valLog = getReadableSerieInfos(name, m_series[name]);
 
     if (m_toStdout) {
-        if (m_readableStdout)
-            std::cout << valLog << std::endl;
+        std::cout << valLog << std::endl;
     }
     if (m_toFile) {
         if (m_readableFile)
             m_fileStream << valLog << std::endl;
+        else {
+            auto packed = getSerieAsBytes(name, m_series[name]);
+            m_fileStream.write(
+                reinterpret_cast<const char *>(packed.data()),   // NOLINT
+                static_cast<long>(packed.size()));
+        }
     }
 }
 
-std::string TelemetryLogger::getReadableSerieInfos(const std::string &name, const TelemetrySeries &serie)
+std::string TelemetryLogger::getReadableSerieInfos(
+    const std::string &name, const TelemetrySeries &serie)
 {
-    return "Series '" + name + "' (ID: " + std::to_string(serie.id) + ", Unit: " + serie.unit  + ", Start time: " + std::to_string(serie.startTime) + ")";
+    return "Series '" + name + "' (ID: " + std::to_string(serie.id) +
+           ", Unit: " + serie.unit +
+           ", Start time: " + std::to_string(serie.startTime) + ")";
+}
+
+std::vector<uint8_t> TelemetryLogger::getSerieAsBytes(
+    const std::string &name, const TelemetrySeries &serie)
+{
+    std::vector<uint8_t> packedData;
+    appendToVector(packedData, 0xFFFF); // magic number to identify this is a series declaration
+    appendToVector(packedData, static_cast<uint16_t>(name.size()));
+    for (char c : name) {
+        packedData.push_back(static_cast<uint8_t>(c));
+    }
+
+    appendToVector(packedData, serie.id);
+    appendToVector(packedData, serie.startTime);
+
+    std::string unit = serie.unit.substr(0, 16);
+    for (size_t i = 0; i < 16; ++i) {
+        if (i < unit.size()) {
+            packedData.push_back(unit[i]);
+        } else {
+            packedData.push_back(0);
+        }
+    }
+    return packedData;
 }
 
 void TelemetryLogger::saveToFile(const std::string &fileName, bool readable)
@@ -77,7 +109,8 @@ void TelemetryLogger::saveToFile(const std::string &fileName, bool readable)
         return;
     }
     for (const auto &serie : m_series) {
-        m_fileStream << getReadableSerieInfos(serie.first, serie.second) << std::endl;
+        m_fileStream << getReadableSerieInfos(serie.first, serie.second)
+                     << std::endl;
     }
     for (const auto &value : m_buffer) {
         writeInFile(value);
@@ -92,13 +125,13 @@ void TelemetryLogger::stopSaveToFile()
     m_fileName.clear();
 }
 
-void TelemetryLogger::saveToStdout(bool readable)
+void TelemetryLogger::saveToStdout()
 {
     m_toStdout = true;
-    m_readableStdout = readable;
 
     for (const auto &serie : m_series) {
-        std::cout << getReadableSerieInfos(serie.first, serie.second) << std::endl;
+        std::cout << getReadableSerieInfos(serie.first, serie.second)
+                  << std::endl;
     }
     for (const auto &value : m_buffer) {
         writeInStdout(value);
@@ -109,7 +142,6 @@ void TelemetryLogger::saveToStdout(bool readable)
 void TelemetryLogger::StopSaveToStdout()
 {
     m_toStdout = false;
-    m_readableStdout = false;
 }
 
 bool TelemetryLogger::checkValueType(
@@ -171,15 +203,18 @@ void TelemetryLogger::saveValue(TelemetryData value)
 
 void TelemetryLogger::writeInStdout(const TelemetryData &value)
 {
-    if (m_readableStdout) {
-        std::cout << getReadableValue(value) << std::endl;
-    }
+    std::cout << getReadableValue(value) << std::endl;
 }
 
 void TelemetryLogger::writeInFile(const TelemetryData &value)
 {
     if (m_readableFile) {
         m_fileStream << getReadableValue(value) << std::endl;
+    } else {
+        auto packed = getValueAsBytes(value);
+        m_fileStream.write(
+            reinterpret_cast<const char *>(packed.data()),   // NOLINT
+            static_cast<long>(packed.size()));
     }
 }
 
@@ -199,8 +234,40 @@ std::string TelemetryLogger::getReadableValue(const TelemetryData &value) const
             oss << "Unknown Type";
             break;
     }
-
     return oss.str();
+}
+
+std::vector<uint8_t> TelemetryLogger::getValueAsBytes(
+    const TelemetryData &value)
+{
+    std::vector<uint8_t> packedData;
+
+    auto it = m_series.find(value.serieName);
+
+    appendToVector(packedData, it->second.id);
+    appendToVector(packedData, value.timestamp);
+
+    switch (it->second.type) {
+        case TelemetryType::DOUBLE: {
+            uint64_t doubleAsBits = 0;
+            std::memcpy(
+                &doubleAsBits, &std::get<double>(value.value), sizeof(double));
+            appendToVector(packedData, doubleAsBits);
+            break;
+        }
+        case TelemetryType::STRING: {
+            std::string strValue = std::get<std::string>(value.value);
+            uint32_t strLength = strValue.length();
+            appendToVector(packedData, strLength);
+
+            for (char c : strValue) {
+                packedData.push_back(static_cast<uint8_t>(c));
+            }
+            break;
+        }
+    }
+
+    return packedData;
 }
 
 void TelemetryLogger::clear()
