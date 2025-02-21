@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+import argparse
+from sys import stderr
+from serie_parser.serie_parser import Serie, Parser
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        prog="telemetry_viewer",
+        description="A visualizer for telemetry files.",
+    )
+    parser.add_argument(
+        "FILE",
+        metavar="FILE",
+        type=str,
+        help="File to analyze.",
+    )
+    args = parser.parse_args()
+
+    return args
+
+
+def main_viewer(file: str) -> int:
+    series: list[Serie]
+    try:
+        with open(file, 'rb') as file_content:
+            parsed = Parser(file_content)
+            series = parsed.series
+    except Exception as err:
+        raise FileNotFoundError(
+            f"Failed to load values from file '{file}'") from err
+
+    print(f"Telemetry infos from file '{file}' properly loaded.")
+    print("Series :", series)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        arg = parse_arguments()
+        main_viewer(arg.FILE)
+    except Exception as e:
+        print(e, file=stderr)
+        exit(1)
