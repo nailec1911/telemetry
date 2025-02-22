@@ -1,41 +1,7 @@
 """parsing of the log file
 """
 import struct
-import pandas as pd
-
-
-class Serie:
-    def __init__(self, name: str, serie_id: int, timestamp: int, unit: str, value_type: type):
-        self.name: str = name
-        self.unit: str = unit
-        self.value_type: type = value_type
-        self.id = serie_id
-        self.timestamp: int = timestamp
-        self.values = pd.Series(dtype=value_type)
-        return
-
-    def add_value(self, timestamp, value):
-        self.values.at[timestamp] = value
-        return
-
-    def print_values(self):
-        for timestamp, value in self.values.items():
-            print(f"{self.name} [{timestamp}]: {value}")
-        return
-
-    def get_sorted_values(self) -> list:
-        return self.values.sort_index()
-
-    def get_type(self) -> type:
-        return self.value_type
-
-    def __str__(self) -> str:
-        return f"Serie '{self.name}' " \
-            f"(ID: {self.id}, Unit: {self.unit}, type: {self.value_type}, Start time: {self.timestamp})"
-
-    def __repr__(self):
-        return f"Serie '{self.name}' " \
-            f"(ID: {self.id}, Unit: {self.unit}, type: {self.value_type}, Start time: {self.timestamp})"
+from telemetry_values.telemetry_values import Serie, TelemetryValues
 
 
 class Parser:
@@ -59,12 +25,12 @@ class Parser:
 
     def __init__(self, file: bytes) -> None:
         self.file = file
-        self.series: dict[int:Serie] = {}
 
-        self.name = self.get_string()
-        self.timestamp: int = struct.unpack(
+        name = self.get_string()
+        timestamp: int = struct.unpack(
             "Q", self.file[:self.SIZE_TIMESTAMP])[0]
         self.file = self.file[self.SIZE_TIMESTAMP:]
+        self.vals = TelemetryValues(name, timestamp)
 
         while len(self.file) > 1:
             serie_id: int = struct.unpack("H", self.file[:self.SIZE_ID])[0]
@@ -73,16 +39,16 @@ class Parser:
             if serie_id == 0:
                 self.parse_serie()
                 continue
-            if serie_id not in self.series:
+            if not self.vals.is_serie_logged(serie_id):
                 raise ValueError(f"Error value has unknow serie id {serie_id}")
-            if self.series[serie_id].get_type() == str:
+            if self.vals.get_serie(serie_id).get_type() == str:
                 self.parse_str_value(serie_id)
             else:
                 self.parse_value(serie_id)
         return
 
-    def get_datas(self) -> tuple:
-        return (self.name, self.timestamp, self.series)
+    def get_datas(self) -> TelemetryValues:
+        return self.vals
 
     def parse_str_value(self, serie_id):
         if len(self.file) < self.SIZE_MIN_VALUE_STR:
@@ -100,7 +66,7 @@ class Parser:
         self.file = self.file[sizeval:]
         value: str = res.decode("utf-8").rstrip("\x00")
 
-        self.series[serie_id].add_value(timestamp, value)
+        self.vals.add_value(serie_id, timestamp, value)
         return
 
     def parse_value(self, serie_id):
@@ -111,7 +77,7 @@ class Parser:
         data_size = struct.calcsize(data_format)
         timestamp, value = struct.unpack(data_format, self.file[:data_size])
         self.file = self.file[data_size:]
-        self.series[serie_id].add_value(timestamp, value)
+        self.vals.add_value(serie_id, timestamp, value)
         return
 
     def parse_serie(self):
@@ -131,7 +97,6 @@ class Parser:
         name = name.decode("utf-8").rstrip("\x00")
         unit = unit.decode("utf-8").rstrip("\x00")
         type_val = int if type_val == 0 else str
-        self.series[serie_id] = Serie(
-            name, serie_id, timestamp, unit, type_val)
+        self.vals.add_serie(name, serie_id, timestamp, unit, type_val)
         self.file = self.file[data_size:]
         return

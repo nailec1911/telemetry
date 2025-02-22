@@ -1,14 +1,14 @@
 from PyQt6.QtWidgets import QVBoxLayout, QWidget, QComboBox
 import pyqtgraph as pg
-from serie_parser.serie_parser import Serie
+from telemetry_values.telemetry_values import Serie, TelemetryValues
 
 
 class TelemetryGUI():
-    def __init__(self, name, timestamp, series_list):
+    def __init__(self, telemetry_values: TelemetryValues):
         self.series_list = {
-            serie.name: serie for serie in series_list if serie.get_type() != str}
-        self.time_start = timestamp
-        self.init_ui(name)
+            serie.name: serie for serie in telemetry_values.get_displayable_serie()}
+        self.time_start = telemetry_values.time_start
+        self.init_ui(telemetry_values.name)
 
     def init_ui(self, name):
         self.window = QWidget()

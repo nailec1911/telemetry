@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 import argparse
 from sys import stderr
-from serie_parser.serie_parser import Serie, Parser
+from telemetry_values.telemetry_values import Serie, TelemetryValues
+from serie_parser.serie_parser import Parser
 from gui.gui import TelemetryGUI
 from PyQt6.QtWidgets import QApplication
 import pyqtgraph as pg
 
 
-def display_plots(name: str, timestamp: int, series: dict[int:Serie]):
+def display_plots(telemetry_values: TelemetryValues):
     app = QApplication([])
-    viewer = TelemetryGUI(name, timestamp, series.values())
+    viewer = TelemetryGUI(telemetry_values)
     viewer.show()
     app.exec()
     return
@@ -32,24 +33,18 @@ def parse_arguments():
 
 
 def main_viewer(file: str) -> int:
-    name: str = "default"
-    timestamp: int = 0
-    series: dict[int:Serie] = {}
     try:
         with open(file, 'rb') as file_content:
             parsed = Parser(file_content.read())
-            name, timestamp, series = parsed.get_datas()
+            loaded_values: TelemetryValues = parsed.get_datas()
+        print(f"Telemetry infos from file '{file}' properly loaded.")
+        loaded_values.display()
+        display_plots(loaded_values)
+
     except Exception as err:
         print(str(err))
         raise FileNotFoundError(
             f"Failed to load values from file '{file}'") from err
-
-    print(f"Telemetry infos from file '{file}' properly loaded.")
-    print(name, timestamp)
-    for _, serie in series.items():
-        print(serie)
-        serie.print_values()
-    display_plots(name, timestamp, series)
     return 0
 
 
