@@ -2,6 +2,17 @@
 import argparse
 from sys import stderr
 from serie_parser.serie_parser import Serie, Parser
+from gui.gui import TelemetryGUI
+from PyQt6.QtWidgets import QApplication
+import pyqtgraph as pg
+
+
+def display_plots(name: str, timestamp: int, series: dict[int:Serie]):
+    app = QApplication([])
+    viewer = TelemetryGUI(name, timestamp, series.values())
+    viewer.show()
+    app.exec()
+    return
 
 
 def parse_arguments():
@@ -38,6 +49,7 @@ def main_viewer(file: str) -> int:
     for _, serie in series.items():
         print(serie)
         serie.print_values()
+    display_plots(name, timestamp, series)
     return 0
 
 

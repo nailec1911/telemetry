@@ -23,6 +23,9 @@ class Serie:
             print(f"{self.name} [{timestamp}]: {value}")
         return
 
+    def get_sorted_values(self) -> list:
+        return self.values.sort_index()
+
     def get_type(self) -> type:
         return self.value_type
 
