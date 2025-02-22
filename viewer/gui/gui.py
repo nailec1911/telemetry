@@ -5,7 +5,8 @@ from serie_parser.serie_parser import Serie
 
 class TelemetryGUI():
     def __init__(self, name, timestamp, series_list):
-        self.series_list = {serie.name: serie for serie in series_list}
+        self.series_list = {
+            serie.name: serie for serie in series_list if serie.get_type() != str}
         self.time_start = timestamp
         self.init_ui(name)
 
