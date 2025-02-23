@@ -21,11 +21,19 @@ def parse_arguments():
         prog="telemetry_viewer",
         description="A visualizer for telemetry files.",
     )
+    # parser.add_argument(
+        # "FILE",
+        # metavar="FILE",
+        # type=str,
+        # help="File to analyze.",
+    # )
     parser.add_argument(
         "FILE",
         metavar="FILE",
         type=str,
-        help="File to analyze.",
+        nargs="?",
+        default=None,
+        help="File to analyze (optional).",
     )
     args = parser.parse_args()
 
@@ -34,10 +42,13 @@ def parse_arguments():
 
 def main_viewer(file: str) -> int:
     try:
-        parsed = Parser(file)
-        loaded_values: TelemetryValues = parsed.get_datas()
-        print(f"Telemetry infos from file '{file}' properly loaded.")
-        loaded_values.display()
+        if file:
+            parsed = Parser(file)
+            loaded_values: TelemetryValues = parsed.get_datas()
+            print(f"Telemetry infos from file '{file}' properly loaded.")
+            loaded_values.display()
+        else:
+            loaded_values = TelemetryValues("", 0)
         display_plots(loaded_values)
 
     except Exception as err:
