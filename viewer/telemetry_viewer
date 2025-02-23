@@ -34,9 +34,8 @@ def parse_arguments():
 
 def main_viewer(file: str) -> int:
     try:
-        with open(file, 'rb') as file_content:
-            parsed = Parser(file_content.read())
-            loaded_values: TelemetryValues = parsed.get_datas()
+        parsed = Parser(file)
+        loaded_values: TelemetryValues = parsed.get_datas()
         print(f"Telemetry infos from file '{file}' properly loaded.")
         loaded_values.display()
         display_plots(loaded_values)

@@ -5,27 +5,36 @@
 ** main
 */
 
-#include <iostream>
+#include <unistd.h>
+#include <cmath>
 #include "include/TelemetryLogger.hpp"
 
 int main() {
-    TelemetryLogger logger("telemetry_logs");
+    TelemetryLogger logger("random_values");
 
-    logger.saveToFile("toto.log", false);
-    logger.declareSeries("battery_level", "V", TelemetryType::DOUBLE);
-    logger.declareSeries("status", "", TelemetryType::STRING);
-    logger.saveToStdout();
+    logger.saveToFile("sine.log", false);
+    logger.declareSeries("sine_wave", "rad", TelemetryType::DOUBLE);
+    logger.declareSeries("battery_state", "V", TelemetryType::DOUBLE);
+    logger.declareSeries("logs", "", TelemetryType::STRING);
+    srand(time(0));
 
-    std::cout << "Current series:" << std::endl;
-    auto names = logger.getSeriesList();
-    for (auto &name : names) {
-        std::cout << name << std::endl;
+    logger.log("logs", "start logging");
+    logger.log("battery_state", 28.5);
+
+    const double frequency = 2 * M_PI / 30;
+    for (int i = 0; i < 30; ++i) {
+        double value = sin(i * frequency) * 10;
+        usleep(rand() % 500);
+        logger.log("sine_wave", value);
     }
+    logger.log("battery_state", 28.0);
+    logger.log("logs", "sine_wave done");
 
-    logger.declareSeries("test", "°C", TelemetryType::DOUBLE);
-    logger.logStatic("battery_level", 0.);
-    logger.log("battery_level", 29.5);
-    logger.log("battery_level", 28.9);
-    logger.log("status", "OK");
-    logger.log("status", "WARNING");
+    logger.declareSeries("random_noise", "dB", TelemetryType::DOUBLE);
+    for (int i = 0; i < 1000; ++i) {
+        double noiseValue = (rand() % 100) / 10.0 - 5.0;
+        logger.log("random_noise", noiseValue);
+    }
+    logger.log("logs", "random_noise done");
+    logger.log("battery_state", 28.3);
 }

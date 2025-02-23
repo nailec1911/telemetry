@@ -1,7 +1,7 @@
 """parsing of the log file
 """
 import struct
-from telemetry_values.telemetry_values import Serie, TelemetryValues
+from telemetry_values.telemetry_values import TelemetryValues
 
 
 class Parser:
@@ -23,8 +23,8 @@ class Parser:
 
         return res.decode("utf-8").rstrip("\x00")
 
-    def __init__(self, file: bytes) -> None:
-        self.file = file
+    def __init__(self, name: str) -> None:
+        self.read_file(name)
 
         name = self.get_string()
         timestamp: int = struct.unpack(
@@ -45,6 +45,11 @@ class Parser:
                 self.parse_str_value(serie_id)
             else:
                 self.parse_value(serie_id)
+        return
+
+    def read_file(self, file_name: str):
+        with open(file_name, 'rb') as file_content:
+            self.file = file_content.read()
         return
 
     def get_datas(self) -> TelemetryValues:
