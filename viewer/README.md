@@ -102,19 +102,48 @@ The biggest advantage of OOP are :
     - More features (real-time data streaming, data combination ..) can be easily added without breaking existing functionality.
     - If a new type of telemetry data is introduced, a class can be changed without affecting other parts of the system.
 
-### Encapsulation of Telemetry Data : ``class Serie()``
+### Encapsulation of Telemetry Data : ``Serie()`` and ``TelemetryValues()``
 
 The Serie class encapsulates each telemetry series, keeping data structured and self-contained.
 
 Each instance of Serie stores:
 - ``name: str`` → The name of the series (ex: "battery_level")
 - ``unit: str`` → The measurement unit (ex: "V", "km"...)
-- ``value_type: type`` -> The type of the serie (str, int ...)
+- ``value_type: type`` → The type of the serie (str, int ...)
 - ``values: pd.Series`` → A pandas Series mapping timestamps to values
 
+the ``TelemetryValues`` class groups all Serie objects, store some generals value (log name, timestamp) and handle key operations such as:
+- Registering new series when parsing the telemetry file.
+- Mapping values to the correct series based on their unique ID.
+- Get series by type so the GUI doesn't have to sort them.
 
-## Future Improvements
+The series are stored in a dictionnay, to allow an easy access to each serie with its id.
 
-- Add support for streaming real-time telemetry
-- Improve UI to show multiple graph at once
-- Add more serie types (point, vector, map ...)
+### The class ``Parser()``
+
+The Parser class is responsible for reading and decoding binary telemetry files. It ensures that data is correctly interpreted and structured while handling errors.
+
+The file is read in one go and then stored as bytes. Then the bytes are consumed in order, elements by elements, in the same order that the file is written.
+
+The library ``struct`` is used to parse the bytes into variables. It is useful because the telemetry file is written in ``C++``, and struct allows to directly map C++ primitive types to Python. This ensures:
+- Unpacking of multiple values at once.
+- Simple format definitions, making it easy to maintain and extend.
+
+By defining format strings ('=Qd' for a timestamp and double value), we can precisely control how data is extracted.
+
+#### Possible improvements :
+- Streaming Parsing: Instead of loading the entire file into memory, we could read and process data in chunks, making it more efficient for large files.
+- Logging errors: Adding logging for easier debugging of corrupted data.
+
+## General Improvements
+
+1. Error handling :
+   - Custom error class and more precise error informations ensure an easier maintainability
+2. More features: 
+    - Add support for streaming real-time telemetry
+    - Improve UI to show multiple graph at once
+    - Add more serie types (point, vector, map ...)
+3. Testing:
+    - Unit tests and functional test (unsing ``pytest``) would be a great plus, particularly on the Parser,  which is the most error-prone part of the program.
+    - It ensure that everything work correctly and that there is no regression if we add features.
+- 
